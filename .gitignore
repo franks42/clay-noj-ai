@@ -1,14 +1,29 @@
-pom.xml
-pom.xml.asc
-*.jar
-*.class
-/lib/
-/classes/
-/target/
-/checkouts/
-.lein-deps-sum
-.lein-repl-history
-.lein-plugins/
-.lein-failures
+# Dependencies
+node_modules/
+package-lock.json
+
+# Generated docs (Clay output)
+docs/
+
+# IDE and tooling
+.clj-kondo/
+.lsp/
 .nrepl-port
 .cpcache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*~
+
+# Screenshots (keep only final versions)
+dashboard-no-ns.png
+dashboard-refactored.png
+dashboard-success.png
+portfolio-dashboard.png
+portfolio-fixed.png
+screenshot-before.png
+screenshot-after.png

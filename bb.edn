@@ -1,0 +1,58 @@
+{:tasks
+ {clay:start
+  {:doc "Start Clay/Noj server with live-reload and nREPL"
+   :task (shell "clj -M start-clay.clj > clay-server.log 2>&1 &")}
+
+  clay:stop
+  {:doc "Stop Clay/Noj server"
+   :task (do
+           (println "🛑 Stopping Clay/Noj server...")
+           (shell {:continue true} "pkill -f start-clay")
+           (shell {:continue true} "bash -c 'lsof -ti:7890 2>/dev/null | xargs kill -9 2>/dev/null'")
+           (shell {:continue true} "bash -c 'lsof -ti:1971 2>/dev/null | xargs kill -9 2>/dev/null'")
+           (Thread/sleep 1000)
+           (println "✅ Clay server stopped!"))}
+
+  clay:restart
+  {:doc "Restart Clay/Noj server"
+   :task (do
+           (run 'clay:stop)
+           (Thread/sleep 2000)
+           (run 'clay:start)
+           (Thread/sleep 3000)
+           (println "✅ Clay server restarted!")
+           (println "📊 Notebook viewer: http://localhost:1971")
+           (println "🔌 nREPL server:    localhost:7890"))}
+
+  clay:status
+  {:doc "Check Clay/Noj server status"
+   :task (do
+           (println "🔍 Checking server status...")
+           (println "\n📡 nREPL (port 7890):")
+           (let [result (shell {:continue true :out :string :err :string} "lsof -i:7890")]
+             (if (and (zero? (:exit result)) (not-empty (:out result)))
+               (println "  ✅ Port listening")
+               (println "  ❌ Not running")))
+           (println "\n🌐 HTTP Server (port 1971):")
+           (let [port-result (shell {:continue true :out :string :err :string} "lsof -i:1971")
+                 port-open? (and (zero? (:exit port-result)) (not-empty (:out port-result)))]
+             (if port-open?
+               (do
+                 (println "  ✅ Port listening")
+                 (print "  🔗 Web server: ")
+                 (let [http-result (shell {:continue true :out :string :err :string}
+                                          "curl -s -o /dev/null -w '%{http_code}' http://localhost:1971/ --max-time 2")]
+                   (if (and (zero? (:exit http-result))
+                            (= "200" (clojure.string/trim (:out http-result))))
+                     (println "✅ Responding (HTTP 200)")
+                     (println "❌ Not responding"))))
+               (println "  ❌ Not running")))
+           (println))}
+
+  clay:logs
+  {:doc "View Clay/Noj server logs"
+   :task (shell "tail -f clay-server.log")}
+
+  clay:logs-last
+  {:doc "View last 50 lines of Clay/Noj server logs"
+   :task (shell "tail -50 clay-server.log")}}}

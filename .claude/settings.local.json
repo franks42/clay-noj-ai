@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__nrepl_mcp_server__must-read-mcp-nrepl-context",
+      "mcp__nrepl_mcp_server__nrepl-connection",
+      "mcp__nrepl_mcp_server__nrepl-eval",
+      "WebSearch",
+      "WebFetch(domain:scicloj.github.io)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(bb clay:status:*)",
+      "Bash(bb clay:restart:*)",
+      "Bash(curl:*)",
+      "Bash(npx --version)",
+      "Bash(chmod:*)",
+      "Bash(npx:*)",
+      "Bash(npm install)",
+      "Bash(node screenshot.mjs:*)",
+      "mcp__pb-fm-mcp__get_system_context",
+      "Bash(bb clay:start:*)",
+      "mcp__pb-fm-mcp__fetch_complete_wallet_summary",
+      "mcp__pb-fm-mcp__fetch_market_overview_summary",
+      "mcp__pb-fm-mcp__fetch_current_hash_statistics",
+      "mcp__pb-fm-mcp__fetch_last_crypto_token_price",
+      "mcp__pb-fm-mcp__fetch_current_fm_data",
+      "Bash(npm run screenshot:*)",
+      "mcp__nrepl_mcp_server__calculate",
+      "Bash(git add:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "memory"
+  ]
+}

@@ -1,0 +1,2 @@
+{:has-let? false, :expr-depth 1, :functions-used #{+}, :duration-ms 0, :has-threading? false, :expr "(+ 17500000 11500000)", :result-type "class java.lang.Long", :error nil, :timestamp 1763336015358, :success? true}
+{:has-let? false, :expr-depth 1, :functions-used #{*}, :duration-ms 0, :has-threading? false, :expr "(* 29000000 0.028)", :result-type "class java.lang.Double", :error nil, :timestamp 1763336015396, :success? true}

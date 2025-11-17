@@ -1,0 +1,11 @@
+{
+  "name": "clay-noj-ai",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "screenshot": "node screenshot.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
