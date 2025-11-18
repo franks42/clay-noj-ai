@@ -20,7 +20,7 @@ test.describe('XSS Security - HTML Injection Prevention', () => {
 
   test('Script tags in params should be escaped, not executed', async ({ page }) => {
     // This is the critical XSS test
-    const maliciousPayload = '<script>alert("xss")</script>';
+    const maliciousPayload = '<script>alert(1)</script>';
 
     await page.setContent(`
       <form method="POST" action="${BASE_URL}/${TEST_PAGE}">
