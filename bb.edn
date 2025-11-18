@@ -55,4 +55,12 @@
 
   clay:logs-last
   {:doc "View last 50 lines of Clay/Noj server logs"
-   :task (shell "tail -50 clay-server.log")}}}
+   :task (shell "tail -50 clay-server.log")}
+
+  test:e2e
+  {:doc "Run Playwright E2E tests"
+   :task (shell "npx playwright test test-stateful-params.spec.js")}
+
+  test:e2e-headed
+  {:doc "Run Playwright E2E tests with browser visible"
+   :task (shell "npx playwright test test-stateful-params.spec.js --headed")}}}
