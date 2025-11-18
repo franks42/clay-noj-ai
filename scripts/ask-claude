@@ -1,0 +1,295 @@
+#!/usr/bin/env bb
+
+;; ask-claude - CLI tool for multi-instance Claude service
+;;
+;; Usage:
+;;   ./scripts/ask-claude "What is 2+2?"                    # Ask default instance
+;;   ./scripts/ask-claude -n researcher "Find issues"      # Ask named instance
+;;   ./scripts/ask-claude --spawn researcher               # Spawn named instance
+;;   ./scripts/ask-claude --list                           # List all instances
+;;   ./scripts/ask-claude --async -n worker "Long task"    # Async request
+;;   ./scripts/ask-claude --poll <request-id>              # Poll for response
+;;   ./scripts/ask-claude --relay researcher reviewer "msg" # Relay between Claudes
+;;
+;; Prerequisites:
+;;   1. nREPL MCP server running with local-nrepl-server on port 7888
+;;   2. claude-service.clj loaded into the server
+
+(require '[bencode.core :as bencode]
+         '[clojure.string :as str])
+
+(import '[java.net Socket]
+        '[java.io PushbackInputStream])
+
+(def nrepl-port 7888)
+(def nrepl-host "localhost")
+
+;; =============================================================================
+;; nREPL Client
+;; =============================================================================
+
+(defn- bytes-to-string [obj]
+  (cond
+    (instance? (Class/forName "[B") obj) (String. obj "UTF-8")
+    (string? obj) obj
+    :else (str obj)))
+
+(defn- convert-response [obj]
+  (cond
+    (map? obj) (into {} (map (fn [[k v]]
+                               [(keyword (bytes-to-string k))
+                                (convert-response v)]) obj))
+    (vector? obj) (mapv convert-response obj)
+    (seq? obj) (map convert-response obj)
+    :else (bytes-to-string obj)))
+
+(defn nrepl-eval [code & {:keys [timeout] :or {timeout 120000}}]
+  (with-open [socket (Socket. nrepl-host nrepl-port)
+              in (PushbackInputStream. (.getInputStream socket))
+              out (.getOutputStream socket)]
+    (.setSoTimeout socket timeout)
+
+    (let [msg {:op "eval" :code code :id (str (random-uuid))}]
+      (bencode/write-bencode out msg)
+      (.flush out))
+
+    (loop [result nil error nil]
+      (let [raw (bencode/read-bencode in)
+            response (convert-response raw)
+            status (:status response)]
+        (cond
+          (:value response) (recur (:value response) error)
+          (:err response) (recur result (:err response))
+          (and status (some #(= "done" %) status))
+          (if error
+            (binding [*out* *err*]
+              (println error)
+              result)
+            result)
+          :else (recur result error))))))
+
+;; =============================================================================
+;; Commands
+;; =============================================================================
+
+(defn send-to-claude [name prompt]
+  (let [code (format "(claude-service/ask %s %s)" (pr-str name) (pr-str prompt))]
+    (nrepl-eval code)))
+
+(defn send-async [name prompt]
+  (let [code (format "(claude-service/ask-async %s %s)" (pr-str name) (pr-str prompt))]
+    (nrepl-eval code)))
+
+(defn poll-response [request-id]
+  (let [code (format "(claude-service/poll-response %s)" (pr-str request-id))]
+    (nrepl-eval code)))
+
+(defn wait-response [request-id timeout]
+  (let [code (format "(claude-service/wait-response %s %d)" (pr-str request-id) timeout)]
+    (nrepl-eval code :timeout (+ timeout 5000))))
+
+(defn relay-message [from to prompt]
+  (let [code (format "(claude-service/relay %s %s %s)"
+                     (pr-str from) (pr-str to) (pr-str prompt))]
+    (nrepl-eval code)))
+
+(defn print-usage []
+  (println "Usage: ask-claude [options] <prompt>")
+  (println "")
+  (println "Options:")
+  (println "  -n, --name NAME     Claude instance name (default: \"default\")")
+  (println "  --async             Send async request, return request-id")
+  (println "  --poll ID           Poll for response by request-id")
+  (println "  --wait ID [MS]      Wait for response (default timeout: 60000ms)")
+  (println "")
+  (println "Service Management:")
+  (println "  --spawn NAME        Spawn a new named Claude instance")
+  (println "  --fork SRC NEW      Fork SRC instance into NEW (inherits context)")
+  (println "  --spawn-from SID N  Spawn instance N from session-id SID")
+  (println "  --kill NAME         Kill a named Claude instance")
+  (println "  --kill-all          Kill all Claude instances")
+  (println "  --list              List all Claude instances")
+  (println "  --status [NAME]     Get status of instance(s)")
+  (println "  --lineage NAME      Get fork lineage for instance")
+  (println "  --context           Get MCP server context for Claudes")
+  (println "")
+  (println "Routing:")
+  (println "  --relay FROM TO MSG Relay message between Claudes")
+  (println "  --broadcast MSG     Broadcast to all Claudes")
+  (println "")
+  (println "Examples:")
+  (println "  ask-claude \"What is 2+2?\"")
+  (println "  ask-claude -n researcher \"Find security issues\"")
+  (println "  ask-claude --spawn base")
+  (println "  ask-claude -n base \"Learn about project X\"")
+  (println "  ask-claude --fork base worker-1")
+  (println "  ask-claude --fork base worker-2")
+  (println "  ask-claude --async -n worker-1 \"Analyze security\"")
+  (println "  ask-claude --poll worker-1-000001-abc123")
+  (println "  ask-claude --relay researcher reviewer \"Review these findings\""))
+
+(defn parse-args [args]
+  (loop [args args
+         opts {:name "default"
+               :command :ask
+               :prompt nil}]
+    (if (empty? args)
+      opts
+      (let [[arg & rest] args]
+        (cond
+          ;; Name option
+          (or (= arg "-n") (= arg "--name"))
+          (recur (drop 1 rest) (assoc opts :name (first rest)))
+
+          ;; Async flag
+          (= arg "--async")
+          (recur rest (assoc opts :async true))
+
+          ;; Poll command
+          (= arg "--poll")
+          (recur (drop 1 rest) (assoc opts :command :poll :request-id (first rest)))
+
+          ;; Wait command
+          (= arg "--wait")
+          (let [id (first rest)
+                timeout (if (and (second rest) (re-matches #"\d+" (second rest)))
+                          (parse-long (second rest))
+                          60000)
+                to-drop (if (and (second rest) (re-matches #"\d+" (second rest))) 2 1)]
+            (recur (drop to-drop rest) (assoc opts :command :wait :request-id id :timeout timeout)))
+
+          ;; Spawn command
+          (= arg "--spawn")
+          (recur (drop 1 rest) (assoc opts :command :spawn :spawn-name (first rest)))
+
+          ;; Fork command
+          (= arg "--fork")
+          (let [[src new-name] rest]
+            (recur (drop 2 rest) (assoc opts :command :fork :fork-source src :fork-name new-name)))
+
+          ;; Spawn from session command
+          (= arg "--spawn-from")
+          (let [[session-id new-name] rest]
+            (recur (drop 2 rest) (assoc opts :command :spawn-from :session-id session-id :spawn-name new-name)))
+
+          ;; Lineage command
+          (= arg "--lineage")
+          (recur (drop 1 rest) (assoc opts :command :lineage :lineage-name (first rest)))
+
+          ;; Kill command
+          (= arg "--kill")
+          (recur (drop 1 rest) (assoc opts :command :kill :kill-name (first rest)))
+
+          ;; Kill all
+          (= arg "--kill-all")
+          (recur rest (assoc opts :command :kill-all))
+
+          ;; List command
+          (= arg "--list")
+          (recur rest (assoc opts :command :list))
+
+          ;; Status command
+          (= arg "--status")
+          (if (and (first rest) (not (str/starts-with? (first rest) "-")))
+            (recur (drop 1 rest) (assoc opts :command :status :status-name (first rest)))
+            (recur rest (assoc opts :command :status)))
+
+          ;; Context command
+          (= arg "--context")
+          (recur rest (assoc opts :command :context))
+
+          ;; Relay command
+          (= arg "--relay")
+          (let [[from to & msg-parts] rest
+                msg (str/join " " msg-parts)]
+            {:command :relay :from from :to to :prompt msg})
+
+          ;; Broadcast command
+          (= arg "--broadcast")
+          (let [msg (str/join " " rest)]
+            {:command :broadcast :prompt msg})
+
+          ;; Help
+          (or (= arg "--help") (= arg "-h"))
+          (assoc opts :command :help)
+
+          ;; Assume it's part of the prompt
+          :else
+          (recur rest (update opts :prompt #(if % (str % " " arg) arg))))))))
+
+(defn main [args]
+  (try
+    (let [opts (if (empty? args)
+                 ;; Read from stdin
+                 (let [prompt (str/trim (slurp *in*))]
+                   (if (str/blank? prompt)
+                     {:command :help}
+                     {:name "default" :command :ask :prompt prompt}))
+                 (parse-args args))]
+
+      (case (:command opts)
+        :help
+        (print-usage)
+
+        :ask
+        (if (:async opts)
+          (println (send-async (:name opts) (:prompt opts)))
+          (println (send-to-claude (:name opts) (:prompt opts))))
+
+        :poll
+        (println (poll-response (:request-id opts)))
+
+        :wait
+        (println (wait-response (:request-id opts) (:timeout opts)))
+
+        :spawn
+        (println (nrepl-eval (format "(claude-service/spawn! %s)" (pr-str (:spawn-name opts)))))
+
+        :fork
+        (println (nrepl-eval (format "(claude-service/fork! %s %s)"
+                                     (pr-str (:fork-source opts))
+                                     (pr-str (:fork-name opts)))))
+
+        :spawn-from
+        (println (nrepl-eval (format "(claude-service/spawn-from-session! %s %s)"
+                                     (pr-str (:spawn-name opts))
+                                     (pr-str (:session-id opts)))))
+
+        :lineage
+        (println (nrepl-eval (format "(claude-service/get-lineage %s)" (pr-str (:lineage-name opts)))))
+
+        :kill
+        (println (nrepl-eval (format "(claude-service/kill! %s)" (pr-str (:kill-name opts)))))
+
+        :kill-all
+        (println (nrepl-eval "(claude-service/kill-all!)"))
+
+        :list
+        (println (nrepl-eval "(claude-service/list-services)"))
+
+        :status
+        (if-let [name (:status-name opts)]
+          (println (nrepl-eval (format "(claude-service/status %s)" (pr-str name))))
+          (println (nrepl-eval "(claude-service/status)")))
+
+        :context
+        (println (nrepl-eval "(claude-service/get-context)"))
+
+        :relay
+        (println (relay-message (:from opts) (:to opts) (:prompt opts)))
+
+        :broadcast
+        (println (nrepl-eval (format "(claude-service/broadcast %s)" (pr-str (:prompt opts)))))))
+
+    (catch java.net.ConnectException _
+      (binding [*out* *err*]
+        (println "Error: Cannot connect to nREPL server on port" nrepl-port)
+        (println "Make sure the nREPL MCP server has local-nrepl-server started."))
+      (System/exit 1))
+
+    (catch java.net.SocketTimeoutException _
+      (binding [*out* *err*]
+        (println "Error: Request timed out"))
+      (System/exit 1))))
+
+(main *command-line-args*)
