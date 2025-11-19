@@ -189,6 +189,40 @@
      :session-stats @session-stats}))
 
 ;; =============================================================================
+;; MCP Tool: agent-kill-worker
+;; =============================================================================
+
+(def kill-worker-metadata
+  {:description "Terminate a worker Claude instance"
+   :inputSchema
+   {:type "object"
+    :properties
+    {:worker {:type "string"
+              :description "Name of worker to kill"}}
+    :required ["worker"]}})
+
+(defn kill-worker-handler
+  "Handler for agent-kill-worker tool."
+  [{:keys [worker]}]
+  ;; Log kill
+  (tel/log! {:level :info
+             :id :agent-tools/worker-killing
+             :data {:worker worker}})
+
+  (let [_result (cs/kill! worker)]
+    ;; Track stats
+    (track-kill!)
+
+    ;; Log complete
+    (tel/log! {:level :info
+               :id :agent-tools/worker-killed
+               :data {:worker worker}})
+
+    {:status "killed"
+     :worker worker
+     :session-stats @session-stats}))
+
+;; =============================================================================
 ;; Tool Registry
 ;; =============================================================================
 
@@ -235,6 +269,7 @@
   (register-tool! "agent-list-workers" list-workers-handler list-workers-metadata)
   (register-tool! "agent-spawn-worker" spawn-worker-handler spawn-worker-metadata)
   (register-tool! "agent-send-task" send-task-handler send-task-metadata)
+  (register-tool! "agent-kill-worker" kill-worker-handler kill-worker-metadata)
 
   (tel/log! {:level :info
              :id :agent-tools/initialized

@@ -62,10 +62,10 @@
 - [x] Test: Verify response returned
 
 ### 2.5 agent-kill-worker Tool
-- [ ] Implement tool metadata and handle function
-- [ ] Log kill with tel/log!
-- [ ] Test: Kill worker via tool
-- [ ] Test: Verify worker removed from list
+- [x] Implement tool metadata and handle function
+- [x] Log kill with tel/log!
+- [x] Test: Kill worker via tool
+- [x] Test: Verify worker removed from list
 
 ### 2.6 Integration Testing
 - [ ] Full workflow: spawn -> send -> kill
