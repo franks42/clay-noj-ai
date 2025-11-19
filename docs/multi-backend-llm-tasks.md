@@ -56,10 +56,10 @@
 - [x] Test: Hit max-workers limit
 
 ### 2.4 agent-send-task Tool
-- [ ] Implement tool metadata and handle function
-- [ ] Log send/receive with tel/log!
-- [ ] Test: Send task to spawned worker
-- [ ] Test: Verify response returned
+- [x] Implement tool metadata and handle function
+- [x] Log send/receive with tel/log!
+- [x] Test: Send task to spawned worker
+- [x] Test: Verify response returned
 
 ### 2.5 agent-kill-worker Tool
 - [ ] Implement tool metadata and handle function

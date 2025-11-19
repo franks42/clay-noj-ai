@@ -145,6 +145,50 @@
      :session-stats @session-stats}))
 
 ;; =============================================================================
+;; MCP Tool: agent-send-task
+;; =============================================================================
+
+(def send-task-metadata
+  {:description "Send a task prompt to a worker and wait for response"
+   :inputSchema
+   {:type "object"
+    :properties
+    {:worker {:type "string"
+              :description "Name of worker to send task to"}
+     :prompt {:type "string"
+              :description "Task prompt for the worker"}}
+    :required ["worker" "prompt"]}})
+
+(defn send-task-handler
+  "Handler for agent-send-task tool."
+  [{:keys [worker prompt]}]
+  ;; Log send
+  (tel/log! {:level :info
+             :id :agent-tools/task-sent
+             :data {:worker worker
+                    :prompt-length (count prompt)}})
+
+  (let [start-time (System/currentTimeMillis)
+        response (cs/ask worker prompt)
+        elapsed (- (System/currentTimeMillis) start-time)]
+
+    ;; Track stats
+    (track-request!)
+
+    ;; Log receive
+    (tel/log! {:level :info
+               :id :agent-tools/task-received
+               :data {:worker worker
+                      :response-length (count response)
+                      :elapsed-ms elapsed}})
+
+    {:status "complete"
+     :worker worker
+     :response response
+     :elapsed-ms elapsed
+     :session-stats @session-stats}))
+
+;; =============================================================================
 ;; Tool Registry
 ;; =============================================================================
 
@@ -190,6 +234,7 @@
   ;; Register tools
   (register-tool! "agent-list-workers" list-workers-handler list-workers-metadata)
   (register-tool! "agent-spawn-worker" spawn-worker-handler spawn-worker-metadata)
+  (register-tool! "agent-send-task" send-task-handler send-task-metadata)
 
   (tel/log! {:level :info
              :id :agent-tools/initialized
