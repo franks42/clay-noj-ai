@@ -1,6 +1,28 @@
-# Session Context - 2025-11-18
+# Session Context - 2025-11-19
 
 ## What We Accomplished
+
+### Phase 1.5 Complete: Trove/telemere-lite Structured Logging
+
+Replaced all println logging with structured JSON logging using Trove/telemere-lite.
+
+**Core Changes:**
+- Added `telemere-lite.core` (910 lines) from sente_lite project
+- Added `com.taoensso/trove` dependency
+- Replaced 8 println calls with `tel/log!` structured events
+- Configured file handler: `logs/agent-communication.log`
+- Configured stdout handler for development
+- Added clj-kondo ignore directive for telemere-lite vars
+
+**Event IDs Logged:**
+- `:claude-service/spawning` / `:claude-service/spawned`
+- `:claude-service/killing` / `:claude-service/killed` / `:claude-service/kill-error`
+- `:claude-service/spawning-from-session` / `:claude-service/forked`
+- `:claude-service/relay`
+
+**Output Format:** JSON Lines with timestamps, levels, and structured data
+
+**CODING STANDARD:** All new code MUST use Trove for logging. No println!
 
 ### Phase 1 Complete: Multi-Backend LLM Service MVP
 
@@ -40,6 +62,12 @@ Built a working multi-instance Claude orchestration system with cost optimizatio
 - `ask` / `ask-async` / `poll-response` - Communication
 - `relay` / `broadcast` - Inter-agent messaging
 - `kill!` / `kill-all!` - Cleanup
+- All logging via `tel/log!` with structured events
+
+**`src/telemere_lite/core.cljc`** - Structured logging library
+- JSON Lines output format
+- File and stdout handlers
+- Trove-compatible API
 
 **`bb.edn`** - BB tasks using `babashka.nrepl-client`
 ```bash
@@ -81,8 +109,8 @@ bb claude:kill-all
 ### Git Status
 
 - Branch: `main`
-- All Phase 1 work committed and pushed
-- Tag: `v0.2.0-multi-backend-mvp`
+- All Phase 1 and Phase 1.5 work committed and pushed
+- Tag: `v0.3.0-trove-logging`
 
 ---
 
@@ -122,6 +150,19 @@ From `docs/multi-backend-llm-tasks.md`:
 ---
 
 ## Technical Details
+
+### Trove Logging Pattern (MANDATORY)
+
+```clojure
+(require '[telemere-lite.core :as tel])
+
+;; All logging MUST use this pattern
+(tel/log! {:level :info
+           :id :namespace/event-type
+           :data {:key value}})
+
+;; NEVER use println for logging
+```
 
 ### SCI Compatibility (Important!)
 
@@ -186,10 +227,13 @@ bb claude:kill test
 ## User Preferences
 
 - Use `clojure.pprint/pprint` for formatted output (not jq - output is EDN)
-- Run `clj-kondo` before committing - **warnings are NOT OK** for our code
+- **After EVERY code change:** run `clj-kondo` - zero warnings allowed for our code
+- **After EVERY code change:** run `cljfmt` to reformat
+- If clj-kondo warnings are acceptable, add ignore directive to code
 - Always `git add -f` for docs/ (it's gitignored)
 - Take screenshots before presenting URLs to user
 - Keep task list updated in markdown docs (survives context compacts)
+- **All logging MUST use Trove** - no println anywhere in our code
 
 ---
 
@@ -218,6 +262,7 @@ bb claude:ask worker "fetch data..."  # Worker knows it's a crypto analyst!
 
 ## Important Commits
 
+- `36b4158` - **Trove/telemere-lite structured logging** (Phase 1.5 complete)
 - `25afd02` - Inter-agent MCP tools design
 - `0b34a30` - Relay explanation in demo doc
 - `1bf36f8` - Recorded demo run
@@ -227,4 +272,4 @@ bb claude:ask worker "fetch data..."  # Worker knows it's a crypto analyst!
 
 ---
 
-*Last updated: 2025-11-18 ~23:00*
+*Last updated: 2025-11-19 ~10:00*
