@@ -42,10 +42,10 @@
 - [x] Test: Load file into MCP server
 
 ### 2.2 agent-list-workers Tool
-- [ ] Implement tool metadata and handle function
-- [ ] Register tool with MCP registry
-- [ ] Test: Call tool, verify returns empty list
-- [ ] Test: Spawn instance manually, verify tool sees it
+- [x] Implement tool metadata and handle function
+- [x] Register tool with MCP registry
+- [x] Test: Call tool, verify returns empty list
+- [x] Test: Spawn instance manually, verify tool sees it
 
 ### 2.3 agent-spawn-worker Tool
 - [ ] Implement tool metadata and handle function

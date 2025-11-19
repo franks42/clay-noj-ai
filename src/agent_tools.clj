@@ -72,21 +72,69 @@
   (reset! session-stats {:spawns 0 :requests 0 :kills 0}))
 
 ;; =============================================================================
-;; Tool Registration Helper
+;; MCP Tool: agent-list-workers
 ;; =============================================================================
 
+(def list-workers-metadata
+  {:description "List all active worker Claude instances"
+   :inputSchema
+   {:type "object"
+    :properties {}
+    :required []}})
+
+(defn list-workers-handler
+  "Handler for agent-list-workers tool."
+  [_params]
+  (let [services (cs/list-services)
+        workers (for [[name info] services]
+                  {:name name
+                   :model (:model info)
+                   :status (:status info)
+                   :pid (:pid info)
+                   :requests (:request-count info)
+                   :created-at (:created-at info)
+                   :session-id (:session-id info)})]
+    (tel/log! {:level :debug
+               :id :agent-tools/list-workers
+               :data {:count (count workers)}})
+    {:workers (vec workers)
+     :count (count workers)
+     :limit @max-workers
+     :session-stats @session-stats}))
+
+;; =============================================================================
+;; Tool Registry
+;; =============================================================================
+
+(defonce tool-registry (atom {}))
+
 (defn register-tool!
-  "Register an MCP tool. This is a placeholder - actual registration
-   depends on how the MCP server handles dynamic tools."
+  "Register an MCP tool in local registry."
   [tool-name handler metadata]
+  (swap! tool-registry assoc tool-name {:handler handler :metadata metadata})
   (tel/log! {:level :info
              :id :agent-tools/tool-registered
              :data {:tool-name tool-name}})
-  ;; Store in a registry atom for now
-  ;; Actual MCP registration TBD based on server capabilities
-  {:tool-name tool-name
-   :handler handler
-   :metadata metadata})
+  {:tool-name tool-name :status :registered})
+
+(defn get-tool
+  "Get a registered tool by name."
+  [tool-name]
+  (get @tool-registry tool-name))
+
+(defn list-tools
+  "List all registered tools."
+  []
+  (keys @tool-registry))
+
+(defn call-tool
+  "Call a registered tool by name with params."
+  [tool-name params]
+  (if-let [tool (get-tool tool-name)]
+    ((:handler tool) params)
+    (throw (ex-info (str "Tool not found: " tool-name)
+                    {:tool-name tool-name
+                     :available (list-tools)}))))
 
 ;; =============================================================================
 ;; Initialization
@@ -95,11 +143,16 @@
 (defn init!
   "Initialize agent tools system."
   []
+  (reset-session-stats!)
+
+  ;; Register tools
+  (register-tool! "agent-list-workers" list-workers-handler list-workers-metadata)
+
   (tel/log! {:level :info
              :id :agent-tools/initialized
              :data {:max-workers @max-workers
-                    :max-requests @max-total-requests}})
-  (reset-session-stats!)
+                    :max-requests @max-total-requests
+                    :tools (vec (list-tools))}})
   :initialized)
 
 ;; Auto-initialize on load
