@@ -1,4 +1,6 @@
-{:tasks
+{:deps {babashka/nrepl-client {:git/url "https://github.com/babashka/nrepl-client"
+                               :git/sha "19fbef2525e47d80b9278c49a545de58f48ee7cf"}}
+ :tasks
  {clay:start
   {:doc "Start Clay/Noj server with live-reload and nREPL"
    :task (shell "clj -M start-clay.clj > clay-server.log 2>&1 &")}
@@ -63,4 +65,70 @@
 
   test:e2e-headed
   {:doc "Run Playwright E2E tests with browser visible"
-   :task (shell "npx playwright test test-stateful-params.spec.js --headed")}}}
+   :task (shell "npx playwright test test-stateful-params.spec.js --headed")}
+
+  ;; Claude service tasks (using babashka.nrepl-client to connect to port 7888)
+  claude:eval
+  {:doc "Evaluate code in local-nrepl-server: bb claude:eval '(+ 1 2)'"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [code (first *command-line-args*)]
+           (if code
+             (let [result (nrepl/eval-expr {:port 7888 :expr code})]
+               (println (first (:vals result))))
+             (println "Usage: bb claude:eval '(+ 1 2)'")))}
+
+  claude:spawn
+  {:doc "Spawn Claude instance: bb claude:spawn <name>"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [name (or (first *command-line-args*) "default")
+               result (nrepl/eval-expr {:port 7888 :expr (str "(claude-service/spawn! \"" name "\")")})]
+           (println (first (:vals result))))}
+
+  claude:ask
+  {:doc "Ask Claude instance: bb claude:ask <name> <prompt>"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [[name & prompt-parts] *command-line-args*
+               prompt (clojure.string/join " " prompt-parts)]
+           (if (and name (seq prompt))
+             (let [code (str "(claude-service/ask \"" name "\" \"" (clojure.string/escape prompt {\" "\\\""}) "\")")
+                   result (nrepl/eval-expr {:port 7888 :expr code})]
+               (println (first (:vals result))))
+             (println "Usage: bb claude:ask <name> <prompt>")))}
+
+  claude:list
+  {:doc "List all Claude instances"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [result (nrepl/eval-expr {:port 7888 :expr "(claude-service/list-services)"})]
+           (println (first (:vals result))))}
+
+  claude:status
+  {:doc "Get status of Claude instance(s): bb claude:status [name]"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [name (first *command-line-args*)
+               code (if name
+                      (str "(claude-service/status \"" name "\")")
+                      "(claude-service/status)")
+               result (nrepl/eval-expr {:port 7888 :expr code})]
+           (println (first (:vals result))))}
+
+  claude:fork
+  {:doc "Fork Claude instance: bb claude:fork <source> <new-name>"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [[source new-name] *command-line-args*]
+           (if (and source new-name)
+             (let [result (nrepl/eval-expr {:port 7888 :expr (str "(claude-service/fork! \"" source "\" \"" new-name "\")")})]
+               (println (first (:vals result))))
+             (println "Usage: bb claude:fork <source> <new-name>")))}
+
+  claude:kill
+  {:doc "Kill Claude instance: bb claude:kill <name>"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [name (or (first *command-line-args*) "default")
+               result (nrepl/eval-expr {:port 7888 :expr (str "(claude-service/kill! \"" name "\")")})]
+           (println (first (:vals result))))}
+
+  claude:kill-all
+  {:doc "Kill all Claude instances"
+   :requires ([babashka.nrepl-client :as nrepl])
+   :task (let [result (nrepl/eval-expr {:port 7888 :expr "(claude-service/kill-all!)"})]
+           (println (first (:vals result))))}}}

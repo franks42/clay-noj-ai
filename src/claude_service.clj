@@ -25,37 +25,51 @@
 ;; State - Multi-service registry with message queues
 ;; =============================================================================
 
-(defonce ^:private registry
+(defonce registry
   (atom {}))
 
-(defonce ^:private response-queues
-  "Map of request-id -> {:status :pending/:complete/:error, :result ..., :claude ...}"
+(defonce response-queues
+  ;; Map of request-id -> {:status :pending/:complete/:error, :result ..., :claude ...}
   (atom {}))
 
-(defonce ^:private request-counter
+(defonce request-counter
   (atom 0))
 
 ;; =============================================================================
 ;; Configuration
 ;; =============================================================================
 
-(def ^:private claude-path
+(def claude-path
   "/Users/franksiebenlist/.claude/local/claude")
 
-(def ^:private claude-args
+(def claude-base-args
   ["-p" "--verbose" "--input-format" "stream-json" "--output-format" "stream-json"])
+
+(def model-ids
+  "Available Claude models with their identifiers."
+  {:haiku  "claude-3-5-haiku-20241022"
+   :sonnet "claude-sonnet-4-20250514"
+   :opus   "claude-opus-4-20250514"})
+
+(defn build-claude-args
+  "Build command args, optionally with model selection."
+  [model]
+  (if model
+    (let [model-id (get model-ids model model)] ; allow keyword or string
+      (into claude-base-args ["--model" model-id]))
+    claude-base-args))
 
 ;; =============================================================================
 ;; Internal helpers
 ;; =============================================================================
 
-(defn- generate-request-id
+(defn generate-request-id
   "Generate unique request ID with counter for ordering."
   [claude-name]
   (let [n (swap! request-counter inc)]
     (format "%s-%06d-%s" claude-name n (subs (str (random-uuid)) 0 8))))
 
-(defn- read-jsonl-response
+(defn read-jsonl-response
   "Read JSONL lines from reader until we get a result message."
   [reader]
   (loop [responses {}]
@@ -69,7 +83,7 @@
           (recur responses)))
       responses)))
 
-(defn- send-message!
+(defn send-message!
   "Send a user message to Claude via stdin."
   [writer content]
   (let [msg {:type "user"
@@ -79,7 +93,7 @@
     (.write writer "\n")
     (.flush writer)))
 
-(defn- get-service
+(defn get-service
   "Get service by name, throw if not found."
   [name]
   (if-let [svc (get @registry name)]
@@ -94,37 +108,49 @@
 
 (defn spawn!
   "Spawn a new named Claude instance.
-   Returns service info map."
-  [name]
+
+   Options:
+     :model - :haiku, :sonnet, :opus (or full model string)
+
+   Examples:
+     (spawn! \"worker\")
+     (spawn! \"fetcher\" :model :haiku)
+     (spawn! \"analyzer\" :model :opus)"
+  [name & {:keys [model]}]
   (when (get @registry name)
     (throw (ex-info (str "Claude service '" name "' already exists")
                     {:name name})))
 
-  (println (str "Spawning Claude instance: " name))
+  (let [model-name (when model (get model-ids model (str model)))]
+    (println (str "Spawning Claude instance: " name
+                  (when model-name (str " (model: " model-name ")"))))
 
-  (let [proc (p/process (into [claude-path] claude-args)
-                        {:shutdown p/destroy-tree})
-        stdin (:in proc)
-        stdout (:out proc)
-        writer (io/writer stdin)
-        reader (io/reader stdout)
-        service {:name name
-                 :process proc
-                 :stdin stdin
-                 :stdout stdout
-                 :writer writer
-                 :reader reader
-                 :status :running
-                 :created-at (System/currentTimeMillis)
-                 :session-id nil
-                 :request-count 0}]
+    (let [args (build-claude-args model)
+          proc (p/process (into [claude-path] args)
+                          {:shutdown p/destroy-tree})
+          stdin (:in proc)
+          stdout (:out proc)
+          writer (io/writer stdin)
+          reader (io/reader stdout)
+          service {:name name
+                   :process proc
+                   :stdin stdin
+                   :stdout stdout
+                   :writer writer
+                   :reader reader
+                   :model model
+                   :status :running
+                   :created-at (System/currentTimeMillis)
+                   :session-id nil
+                   :request-count 0}]
 
-    (swap! registry assoc name service)
-    (println (str "Claude instance '" name "' spawned."))
+      (swap! registry assoc name service)
+      (println (str "Claude instance '" name "' spawned."))
 
-    {:name name
-     :status :running
-     :pid (try (.pid (:proc proc)) (catch Exception _ nil))}))
+      {:name name
+       :status :running
+       :model model
+       :pid (try (.pid (:proc proc)) (catch Exception _ nil))})))
 
 (defn kill!
   "Kill a named Claude instance."
@@ -182,7 +208,7 @@
   (println (str "Spawning Claude '" name "' from session: " session-id))
 
   ;; Add --resume to load existing session history
-  (let [resume-args (vec (concat [claude-path] claude-args ["--resume" session-id]))
+  (let [resume-args (vec (concat [claude-path] claude-base-args ["--resume" session-id]))
         proc (p/process resume-args
                         {:shutdown p/destroy-tree})
         stdin (:in proc)
@@ -263,6 +289,7 @@
   (let [svc (get-service name)]
     {:name name
      :status (:status svc)
+     :model (:model svc)
      :created-at (:created-at svc)
      :session-id (:session-id svc)
      :request-count (:request-count svc)
@@ -282,7 +309,7 @@
    Returns the result string."
   ([name prompt] (ask name prompt {}))
   ([name prompt opts]
-   (let [{:keys [writer reader] :as svc} (get-service name)
+   (let [{:keys [writer reader]} (get-service name)
          _ (send-message! writer prompt)
          response (read-jsonl-response reader)
          session-id (get-in response [:result :session_id])]
