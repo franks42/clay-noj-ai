@@ -68,9 +68,11 @@
 - [x] Test: Verify worker removed from list
 
 ### 2.6 Integration Testing
-- [ ] Full workflow: spawn -> send -> kill
-- [ ] Verify logs in agent-communication.log
-- [ ] Test error handling (kill non-existent, send to dead)
+- [x] Full workflow: spawn -> send -> kill
+- [x] Verify logs in agent-communication.log
+- [x] Test error handling (kill non-existent, send to dead)
+
+**Status: Phase 2 COMPLETE**
 
 **Commit/push after each subsection (2.1, 2.2, etc.)**
 
