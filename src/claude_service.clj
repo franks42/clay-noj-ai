@@ -194,9 +194,12 @@
      name       - Unique name for this instance
      session-id - Session ID to resume from
 
+   Options:
+     :model - :haiku, :sonnet, :opus (or full model string)
+
    Returns:
      Service info map with :forked-from metadata"
-  [name session-id]
+  [name session-id & {:keys [model]}]
   (when (get @registry name)
     (throw (ex-info (str "Claude service '" name "' already exists")
                     {:name name})))
@@ -205,52 +208,60 @@
     (throw (ex-info "session-id is required for spawn-from-session!"
                     {:name name})))
 
-  (println (str "Spawning Claude '" name "' from session: " session-id))
+  (let [model-name (when model (get model-ids model (str model)))]
+    (println (str "Spawning Claude '" name "' from session: " session-id
+                  (when model-name (str " (model: " model-name ")"))))
 
-  ;; Add --resume to load existing session history
-  (let [resume-args (vec (concat [claude-path] claude-base-args ["--resume" session-id]))
-        proc (p/process resume-args
-                        {:shutdown p/destroy-tree})
-        stdin (:in proc)
-        stdout (:out proc)
-        writer (io/writer stdin)
-        reader (io/reader stdout)
-        service {:name name
-                 :process proc
-                 :stdin stdin
-                 :stdout stdout
-                 :writer writer
-                 :reader reader
-                 :status :running
-                 :created-at (System/currentTimeMillis)
-                 :session-id session-id  ;; Starts with parent's session-id
-                 :forked-from session-id ;; Track lineage
-                 :request-count 0}]
+    ;; Add --resume to load existing session history
+    (let [base-args (build-claude-args model)
+          resume-args (vec (concat [claude-path] base-args ["--resume" session-id]))
+          proc (p/process resume-args
+                          {:shutdown p/destroy-tree})
+          stdin (:in proc)
+          stdout (:out proc)
+          writer (io/writer stdin)
+          reader (io/reader stdout)
+          service {:name name
+                   :process proc
+                   :stdin stdin
+                   :stdout stdout
+                   :writer writer
+                   :reader reader
+                   :status :running
+                   :created-at (System/currentTimeMillis)
+                   :session-id session-id  ;; Starts with parent's session-id
+                   :forked-from session-id ;; Track lineage
+                   :model model
+                   :request-count 0}]
 
-    (swap! registry assoc name service)
-    (println (str "Claude '" name "' forked from session " session-id))
+      (swap! registry assoc name service)
+      (println (str "Claude '" name "' forked from session " session-id))
 
-    {:name name
-     :status :running
-     :forked-from session-id
-     :pid (try (.pid (:proc proc)) (catch Exception _ nil))}))
+      {:name name
+       :status :running
+       :model model
+       :forked-from session-id
+       :pid (try (.pid (:proc proc)) (catch Exception _ nil))})))
 
 (defn fork!
   "Fork a running Claude instance into a new named instance.
    The new instance inherits all conversation context from the source.
 
-   Example:
+   Options:
+     :model - :haiku, :sonnet, :opus (or full model string)
+
+   Examples:
      (spawn! \"base\")
      (ask \"base\" \"Learn about project X...\")
      (fork! \"base\" \"worker-1\")
-     (fork! \"base\" \"worker-2\")"
-  [source-name new-name]
+     (fork! \"base\" \"worker-2\" :model :haiku)"
+  [source-name new-name & {:keys [model]}]
   (let [source (get-service source-name)
         session-id (:session-id source)]
     (when-not session-id
       (throw (ex-info (str "Source '" source-name "' has no session-id yet. Send at least one message first.")
                       {:source source-name})))
-    (spawn-from-session! new-name session-id)))
+    (spawn-from-session! new-name session-id :model model)))
 
 (defn get-lineage
   "Get the fork lineage for an instance."

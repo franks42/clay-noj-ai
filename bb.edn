@@ -112,13 +112,15 @@
            (println (first (:vals result))))}
 
   claude:fork
-  {:doc "Fork Claude instance: bb claude:fork <source> <new-name>"
+  {:doc "Fork Claude instance: bb claude:fork <source> <new-name> [model]"
    :requires ([babashka.nrepl-client :as nrepl])
-   :task (let [[source new-name] *command-line-args*]
+   :task (let [[source new-name model] *command-line-args*]
            (if (and source new-name)
-             (let [result (nrepl/eval-expr {:port 7888 :expr (str "(claude-service/fork! \"" source "\" \"" new-name "\")")})]
+             (let [model-arg (when model (str " :model :" model))
+                   code (str "(claude-service/fork! \"" source "\" \"" new-name "\"" model-arg ")")
+                   result (nrepl/eval-expr {:port 7888 :expr code})]
                (println (first (:vals result))))
-             (println "Usage: bb claude:fork <source> <new-name>")))}
+             (println "Usage: bb claude:fork <source> <new-name> [haiku|sonnet|opus]")))}
 
   claude:kill
   {:doc "Kill Claude instance: bb claude:kill <name>"
