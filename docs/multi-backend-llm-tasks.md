@@ -11,22 +11,22 @@
 - [x] Test relay/broadcast for Claude-to-Claude
 - [x] Create bb tasks with babashka.nrepl-client
 - [x] Add `--model` flag support to spawn! (Haiku/Sonnet/Opus)
-- [ ] Create orchestrator + worker example
-- [ ] Document gotchas and patterns
+- [x] Create orchestrator + worker example
+- [x] Document gotchas and patterns
 
-**Status: Core complete, ready for Phase 2**
+**Status: Phase 1 COMPLETE**
 
 ---
 
-## Phase 2: Claude + Haiku
-*Goal: Cost-optimized Claude-only system*
+## Phase 2: Cost Optimization
+*Goal: Measure and optimize multi-model costs*
 
-- [ ] Add model parameter to spawn!
-- [ ] Update claude-path/args for model selection
-- [ ] Test Haiku as data gateway (minimal prompts)
+- [x] Add model parameter to spawn! (done in Phase 1)
+- [x] Test Haiku as data gateway (done in Phase 1)
 - [ ] Measure token/cost reduction
 - [ ] Create data-fetcher prompt templates
 - [ ] Document model-appropriate prompting
+- [ ] Add token counting to service
 
 ---
 
@@ -85,6 +85,15 @@ Use `babashka.nrepl-client` with `eval-expr`:
 (nrepl/eval-expr {:port 7888 :expr "(+ 1 2)"})
 ;; Returns {:vals ["3"]}
 ```
+
+---
+
+## Documentation
+
+- **Design:** `docs/multi-backend-llm-service-design.md`
+- **Examples:** `docs/orchestrator-worker-example.md`
+- **Gotchas:** `docs/claude-service-gotchas.md`
+- **Architecture:** `docs/claude-service-architecture.md`
 
 ---
 
