@@ -33,7 +33,50 @@
 
 ---
 
-## Phase 2: Cost Optimization
+## Phase 2: Inter-Agent MCP Tools
+*Goal: MCP tools for agent-to-agent communication*
+
+### 2.1 Core Infrastructure
+- [x] Create `src/agent_tools.clj` with namespace and requires
+- [x] Add safeguards state (max-workers, session-stats atoms)
+- [x] Test: Load file into MCP server
+
+### 2.2 agent-list-workers Tool
+- [ ] Implement tool metadata and handle function
+- [ ] Register tool with MCP registry
+- [ ] Test: Call tool, verify returns empty list
+- [ ] Test: Spawn instance manually, verify tool sees it
+
+### 2.3 agent-spawn-worker Tool
+- [ ] Implement tool metadata and handle function
+- [ ] Add max-workers limit check
+- [ ] Log spawn with tel/log!
+- [ ] Test: Spawn worker via tool
+- [ ] Test: Verify worker appears in list
+- [ ] Test: Hit max-workers limit
+
+### 2.4 agent-send-task Tool
+- [ ] Implement tool metadata and handle function
+- [ ] Log send/receive with tel/log!
+- [ ] Test: Send task to spawned worker
+- [ ] Test: Verify response returned
+
+### 2.5 agent-kill-worker Tool
+- [ ] Implement tool metadata and handle function
+- [ ] Log kill with tel/log!
+- [ ] Test: Kill worker via tool
+- [ ] Test: Verify worker removed from list
+
+### 2.6 Integration Testing
+- [ ] Full workflow: spawn -> send -> kill
+- [ ] Verify logs in agent-communication.log
+- [ ] Test error handling (kill non-existent, send to dead)
+
+**Commit/push after each subsection (2.1, 2.2, etc.)**
+
+---
+
+## Phase 3: Cost Optimization
 *Goal: Measure and optimize multi-model costs*
 
 - [x] Add model parameter to spawn! (done in Phase 1)
@@ -45,7 +88,7 @@
 
 ---
 
-## Phase 3: Claude + Haiku + Ollama
+## Phase 4: Claude + Haiku + Ollama
 *Goal: Hybrid cloud/local system*
 
 - [ ] Install Ollama locally
