@@ -126,6 +126,8 @@ $ bb claude:ask fetcher "Use fetch_current_hash_statistics to get HASH token sta
 
 Send the fetcher's data to orchestrator for analysis.
 
+**What relay does:** Takes the fetcher's last response (the JSON data), combines it with your context message ("Analyze this..."), and sends the whole thing to the orchestrator. This is the glue that connects workers to coordinators.
+
 ```bash
 $ bb claude:eval '(claude-service/relay "fetcher" "orchestrator" "Analyze this HASH supply data. Provide key metrics and investment implications.")'
 ```
