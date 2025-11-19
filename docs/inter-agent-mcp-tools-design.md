@@ -580,6 +580,34 @@ tail -1 logs/agent-communication.log | grep COST
 
 ---
 
+## Coding Standards
+
+### Logging
+
+**DIRECTIVE: All new code MUST use Trove for logging.**
+
+- Use `tel/log!` with Trove-style structured events
+- Never use `println` for logging
+- Event IDs follow `:namespace/event-type` pattern
+
+```clojure
+;; Required pattern for all logging
+(tel/log! {:level :info
+           :id :agent-tools/worker-spawned
+           :data {:worker-name name :model model}})
+
+;; NOT this
+(println "Worker spawned:" name)
+```
+
+**Dependencies:**
+- `com.taoensso/trove` - Minimal logging facade
+- `telemere-lite.core` - Structured telemetry handlers
+
+**Log output:** JSON Lines to `logs/agent-communication.log`
+
+---
+
 ## Implementation Phases
 
 ### Phase 1: Core Tools + Logging

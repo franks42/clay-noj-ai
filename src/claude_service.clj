@@ -19,7 +19,8 @@
   (:require [babashka.process :as p]
             [cheshire.core :as json]
             [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [telemere-lite.core :as tel]))
 
 ;; =============================================================================
 ;; State - Multi-service registry with message queues
@@ -34,6 +35,27 @@
 
 (defonce request-counter
   (atom 0))
+
+;; =============================================================================
+;; Logging Configuration
+;; =============================================================================
+
+#_{:clj-kondo/ignore [:unresolved-var]}
+(defonce logging-initialized
+  (do
+    ;; Enable the logging runtime
+    (tel/set-enabled! true)
+
+    ;; Add file handler for structured JSON logging
+    (tel/add-file-handler!
+     :agent-log
+     "logs/agent-communication.log"
+     {:async {:mode :dropping :buffer-size 1024 :n-threads 1}})
+
+    ;; Add stdout handler for development visibility
+    (tel/add-stdout-handler! :stdout {})
+
+    true))
 
 ;; =============================================================================
 ;; Configuration
@@ -122,8 +144,9 @@
                     {:name name})))
 
   (let [model-name (when model (get model-ids model (str model)))]
-    (println (str "Spawning Claude instance: " name
-                  (when model-name (str " (model: " model-name ")"))))
+    (tel/log! {:level :info
+               :id :claude-service/spawning
+               :data {:instance-name name :model model-name}})
 
     (let [args (build-claude-args model)
           proc (p/process (into [claude-path] args)
@@ -145,7 +168,9 @@
                    :request-count 0}]
 
       (swap! registry assoc name service)
-      (println (str "Claude instance '" name "' spawned."))
+      (tel/log! {:level :info
+                 :id :claude-service/spawned
+                 :data {:instance-name name :model model-name}})
 
       {:name name
        :status :running
@@ -156,7 +181,9 @@
   "Kill a named Claude instance."
   [name]
   (let [{:keys [process writer reader]} (get-service name)]
-    (println (str "Killing Claude instance: " name))
+    (tel/log! {:level :info
+               :id :claude-service/killing
+               :data {:instance-name name}})
 
     ;; Close streams
     (when writer
@@ -169,7 +196,9 @@
       (try (p/destroy-tree process) (catch Exception _)))
 
     (swap! registry dissoc name)
-    (println (str "Claude instance '" name "' killed."))
+    (tel/log! {:level :info
+               :id :claude-service/killed
+               :data {:instance-name name}})
 
     {:name name :status :killed}))
 
@@ -179,7 +208,9 @@
   (let [names (keys @registry)]
     (doseq [name names]
       (try (kill! name) (catch Exception e
-                         (println (str "Error killing " name ": " (.getMessage e))))))
+                          (tel/log! {:level :error
+                                     :id :claude-service/kill-error
+                                     :data {:instance-name name :error (.getMessage e)}}))))
     {:killed names}))
 
 (defn spawn-from-session!
@@ -209,8 +240,9 @@
                     {:name name})))
 
   (let [model-name (when model (get model-ids model (str model)))]
-    (println (str "Spawning Claude '" name "' from session: " session-id
-                  (when model-name (str " (model: " model-name ")"))))
+    (tel/log! {:level :info
+               :id :claude-service/spawning-from-session
+               :data {:instance-name name :session-id session-id :model model-name}})
 
     ;; Add --resume to load existing session history
     (let [base-args (build-claude-args model)
@@ -235,7 +267,9 @@
                    :request-count 0}]
 
       (swap! registry assoc name service)
-      (println (str "Claude '" name "' forked from session " session-id))
+      (tel/log! {:level :info
+                 :id :claude-service/forked
+                 :data {:instance-name name :session-id session-id :model model}})
 
       {:name name
        :status :running
@@ -433,7 +467,9 @@
   "Relay a message from one Claude to another.
    Returns request-id for async tracking."
   [from-name to-name prompt]
-  (println (str "Relay: " from-name " -> " to-name))
+  (tel/log! {:level :debug
+             :id :claude-service/relay
+             :data {:from from-name :to to-name}})
   (ask-async to-name prompt))
 
 (defn broadcast
@@ -575,5 +611,4 @@
   ;; ===========================================
   (kill! "researcher")
   (kill-all!)
-  (clear-responses)
-  )
+  (clear-responses))

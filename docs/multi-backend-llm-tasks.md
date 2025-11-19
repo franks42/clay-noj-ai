@@ -18,6 +18,21 @@
 
 ---
 
+## Phase 1.5: Structured Logging
+*Goal: Replace println with Trove/telemere-lite*
+
+- [x] Copy telemere-lite.core from sente_lite project
+- [x] Add com.taoensso/trove dependency
+- [x] Replace all println calls with tel/log! in claude_service.clj
+- [x] Configure file handler (logs/agent-communication.log)
+- [x] Configure stdout handler for development
+- [x] Test logging with spawn/kill workflow
+- [x] Add clj-kondo ignore directive for telemere-lite vars
+
+**Status: Phase 1.5 COMPLETE**
+
+---
+
 ## Phase 2: Cost Optimization
 *Goal: Measure and optimize multi-model costs*
 
@@ -66,6 +81,25 @@ bb claude:kill <name>               # Kill instance
 bb claude:kill-all                  # Cleanup
 bb claude:status [name]             # Status check
 ```
+
+---
+
+## Coding Standards
+
+### Logging - MANDATORY
+
+**All new code MUST use Trove for logging. No println!**
+
+```clojure
+(require '[telemere-lite.core :as tel])
+
+(tel/log! {:level :info
+           :id :namespace/event-type
+           :data {:key value}})
+```
+
+Dependencies: `com.taoensso/trove`, `telemere-lite.core`
+Output: JSON Lines to `logs/agent-communication.log`
 
 ---
 

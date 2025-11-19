@@ -1,5 +1,7 @@
 {:deps {org.scicloj/noj {:mvn/version "2-beta19.1"}
-        org.scicloj/clay {:mvn/version "2.0.2"}}
+        org.scicloj/clay {:local/root "/Users/franksiebenlist/Development/clay-fork"}
+        datalevin/datalevin {:mvn/version "0.9.14"}
+        com.taoensso/trove {:mvn/version "1.1.0"}}
 
  :aliases {:clay {:main-opts ["-m" "scicloj.clay.v2.main"]}}
 
