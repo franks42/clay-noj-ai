@@ -103,6 +103,48 @@
      :session-stats @session-stats}))
 
 ;; =============================================================================
+;; MCP Tool: agent-spawn-worker
+;; =============================================================================
+
+(def spawn-worker-metadata
+  {:description "Spawn a new worker Claude instance for task execution"
+   :inputSchema
+   {:type "object"
+    :properties
+    {:name {:type "string"
+            :description "Unique name for the worker"}
+     :model {:type "string"
+             :enum ["haiku" "sonnet" "opus"]
+             :description "Model to use (default: haiku)"}}
+    :required ["name"]}})
+
+(defn spawn-worker-handler
+  "Handler for agent-spawn-worker tool."
+  [{:keys [name model] :or {model "haiku"}}]
+  ;; Check worker limit
+  (check-worker-limit!)
+
+  ;; Spawn the worker
+  (let [model-kw (keyword model)
+        result (cs/spawn! name :model model-kw)]
+
+    ;; Track stats
+    (track-spawn!)
+
+    ;; Log
+    (tel/log! {:level :info
+               :id :agent-tools/worker-spawned
+               :data {:worker-name name
+                      :model model
+                      :pid (:pid result)}})
+
+    {:status "spawned"
+     :worker name
+     :model model
+     :pid (:pid result)
+     :session-stats @session-stats}))
+
+;; =============================================================================
 ;; Tool Registry
 ;; =============================================================================
 
@@ -147,6 +189,7 @@
 
   ;; Register tools
   (register-tool! "agent-list-workers" list-workers-handler list-workers-metadata)
+  (register-tool! "agent-spawn-worker" spawn-worker-handler spawn-worker-metadata)
 
   (tel/log! {:level :info
              :id :agent-tools/initialized

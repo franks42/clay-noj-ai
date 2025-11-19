@@ -48,12 +48,12 @@
 - [x] Test: Spawn instance manually, verify tool sees it
 
 ### 2.3 agent-spawn-worker Tool
-- [ ] Implement tool metadata and handle function
-- [ ] Add max-workers limit check
-- [ ] Log spawn with tel/log!
-- [ ] Test: Spawn worker via tool
-- [ ] Test: Verify worker appears in list
-- [ ] Test: Hit max-workers limit
+- [x] Implement tool metadata and handle function
+- [x] Add max-workers limit check
+- [x] Log spawn with tel/log!
+- [x] Test: Spawn worker via tool
+- [x] Test: Verify worker appears in list
+- [x] Test: Hit max-workers limit
 
 ### 2.4 agent-send-task Tool
 - [ ] Implement tool metadata and handle function
