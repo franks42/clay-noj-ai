@@ -29,6 +29,11 @@
 ;; Helper functions
 ;; =============================================================================
 
+(defn mcp-response
+  "Wrap result in MCP-compliant response format."
+  [result]
+  {:content [{:type "text" :text (pr-str result)}]})
+
 (defn count-active-workers
   "Count currently active Claude instances."
   []
@@ -97,10 +102,10 @@
     (tel/log! {:level :debug
                :id :agent-tools/list-workers
                :data {:count (count workers)}})
-    {:workers (vec workers)
-     :count (count workers)
-     :limit @max-workers
-     :session-stats @session-stats}))
+    (mcp-response {:workers (vec workers)
+                   :count (count workers)
+                   :limit @max-workers
+                   :session-stats @session-stats})))
 
 ;; =============================================================================
 ;; MCP Tool: agent-spawn-worker
@@ -138,11 +143,11 @@
                       :model model
                       :pid (:pid result)}})
 
-    {:status "spawned"
-     :worker name
-     :model model
-     :pid (:pid result)
-     :session-stats @session-stats}))
+    (mcp-response {:status "spawned"
+                   :worker name
+                   :model model
+                   :pid (:pid result)
+                   :session-stats @session-stats})))
 
 ;; =============================================================================
 ;; MCP Tool: agent-send-task
@@ -182,11 +187,11 @@
                       :response-length (count response)
                       :elapsed-ms elapsed}})
 
-    {:status "complete"
-     :worker worker
-     :response response
-     :elapsed-ms elapsed
-     :session-stats @session-stats}))
+    (mcp-response {:status "complete"
+                   :worker worker
+                   :response response
+                   :elapsed-ms elapsed
+                   :session-stats @session-stats})))
 
 ;; =============================================================================
 ;; MCP Tool: agent-kill-worker
@@ -218,9 +223,9 @@
                :id :agent-tools/worker-killed
                :data {:worker worker}})
 
-    {:status "killed"
-     :worker worker
-     :session-stats @session-stats}))
+    (mcp-response {:status "killed"
+                   :worker worker
+                   :session-stats @session-stats})))
 
 ;; =============================================================================
 ;; Tool Registry
