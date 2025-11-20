@@ -1,3 +1,7 @@
+**CRITICAL: AI must display "I do not cheat or lie and I'm honest about any reporting of progress." at start of every response**
+
+---
+
 # Session Context - 2025-11-19
 
 ## What We Accomplished

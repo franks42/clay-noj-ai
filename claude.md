@@ -1,3 +1,7 @@
+**CRITICAL: AI must display "I do not cheat or lie and I'm honest about any reporting of progress." at start of every response**
+
+---
+
 # Claude Code Recipes for clay-noj-ai
 
 ## Starting Background Services
@@ -35,6 +39,79 @@ Should show:
 - 📊 Notebook viewer: http://localhost:1971
 - 🔌 nREPL server: localhost:7890
 - 📄 Logs: `tail -f clay-server.log` or `bb clay:logs`
+
+---
+
+## Testing Before Presenting
+
+### Critical Workflow Rule
+
+**Always verify with screenshots BEFORE telling the user something works or providing URLs.**
+
+### Why This Matters
+
+1. **Catches issues early:** URL typos, filename mismatches (hyphens vs underscores), missing files
+2. **Prevents user frustration:** No "not found" errors or broken links
+3. **Builds trust:** User sees you've verified claims before making them
+4. **Saves time:** One screenshot prevents multiple back-and-forth corrections
+
+### Required Workflow
+
+When presenting URLs or claiming visual results:
+
+1. **Take screenshot first:**
+   ```bash
+   node screenshot.mjs http://localhost:1971/page.html output.png 1400 900
+   ```
+
+2. **View the screenshot:**
+   ```
+   Read tool on the .png file
+   ```
+
+3. **Verify it works:**
+   - Page loads (not "not found")
+   - Content renders as expected
+   - No obvious errors visible
+
+4. **THEN present to user:**
+   - Show the screenshot
+   - Provide verified URL
+   - Explain what they'll see
+
+### Examples
+
+**❌ Wrong (Don't do this):**
+```
+"Navigate to http://localhost:1971/components-showcase.html to see all components!"
+```
+*User gets "not found" because it's actually `components_showcase.html` with underscore*
+
+**✅ Right (Do this):**
+```
+1. Take screenshot of http://localhost:1971/components_showcase.html
+2. Verify it loads and shows components
+3. "Here's what the components showcase looks like: [screenshot]
+   Navigate to: http://localhost:1971/components_showcase.html"
+```
+
+### Clay-Specific Gotchas
+
+- **Filename conversion:** Clay converts `-` to `_` in generated HTML
+  - Source: `components-showcase.clj`
+  - Output: `components_showcase.html` ← Note the underscore!
+- **Default page:** `index.html` serves at root URL automatically
+- **No file listing:** Clay doesn't show file browser, must know exact URLs
+
+### When Screenshots Are Required
+
+- ✅ Providing URLs to user
+- ✅ Claiming something "works" or "renders correctly"
+- ✅ After creating new Clay notebooks
+- ✅ After refactoring existing notebooks
+- ✅ When debugging rendering issues
+- ❌ For simple file operations (Read/Write)
+- ❌ For calculations or data processing
 
 ---
 
