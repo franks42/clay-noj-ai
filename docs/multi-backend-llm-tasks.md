@@ -74,6 +74,13 @@
 
 **Status: Phase 2 COMPLETE**
 
+**Key Discovery:** Dynamic MCP tool registration works in SCI using FQN:
+```clojure
+;; Use FQN instead of require with alias
+(nrepl-mcp-server.state.tool-registry/register-tool!
+ "tool-name" handler metadata)
+```
+
 **Commit/push after each subsection (2.1, 2.2, etc.)**
 
 ---

@@ -257,6 +257,30 @@
                      :available (list-tools)}))))
 
 ;; =============================================================================
+;; MCP Server Registration (via FQN)
+;; =============================================================================
+
+(defn register-with-mcp!
+  "Register a tool with the MCP server's tool registry using FQN.
+   This makes the tool available as an actual MCP tool."
+  [tool-name handler metadata]
+  (try
+    ;; FQN access works in SCI without require
+    #_{:clj-kondo/ignore [:unresolved-namespace]}
+    (nrepl-mcp-server.state.tool-registry/register-tool!
+     tool-name handler metadata)
+    (tel/log! {:level :info
+               :id :agent-tools/mcp-registered
+               :data {:tool-name tool-name}})
+    {:status :registered :tool-name tool-name}
+    (catch Exception e
+      (tel/log! {:level :warn
+                 :id :agent-tools/mcp-registration-failed
+                 :data {:tool-name tool-name
+                        :error (str e)}})
+      {:status :failed :tool-name tool-name :error (str e)})))
+
+;; =============================================================================
 ;; Initialization
 ;; =============================================================================
 
@@ -265,11 +289,17 @@
   []
   (reset-session-stats!)
 
-  ;; Register tools
+  ;; Register tools in local registry
   (register-tool! "agent-list-workers" list-workers-handler list-workers-metadata)
   (register-tool! "agent-spawn-worker" spawn-worker-handler spawn-worker-metadata)
   (register-tool! "agent-send-task" send-task-handler send-task-metadata)
   (register-tool! "agent-kill-worker" kill-worker-handler kill-worker-metadata)
+
+  ;; Register tools with MCP server (makes them available as MCP tools)
+  (register-with-mcp! "agent-list-workers" list-workers-handler list-workers-metadata)
+  (register-with-mcp! "agent-spawn-worker" spawn-worker-handler spawn-worker-metadata)
+  (register-with-mcp! "agent-send-task" send-task-handler send-task-metadata)
+  (register-with-mcp! "agent-kill-worker" kill-worker-handler kill-worker-metadata)
 
   (tel/log! {:level :info
              :id :agent-tools/initialized
