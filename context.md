@@ -69,6 +69,16 @@ Built a working multi-instance Claude orchestration system with cost optimizatio
 - File and stdout handlers
 - Trove-compatible API
 
+**`src/agent_tools.clj`** - MCP tools for inter-agent communication
+- 4 tools: agent-list-workers, agent-spawn-worker, agent-send-task, agent-kill-worker
+- Auto-registers with MCP server on load via FQN
+- Safeguards: max-workers limit, session stats tracking
+
+**`mcp-startup.clj`** - Project-local MCP tool registration
+- Loaded automatically by mcp-nrepl-joyride before connections
+- Loads claude_service.clj and agent_tools.clj
+- Makes inter-agent tools available to Claude Code immediately
+
 **`bb.edn`** - BB tasks using `babashka.nrepl-client`
 ```bash
 bb claude:spawn orchestrator
@@ -109,29 +119,34 @@ bb claude:kill-all
 ### Git Status
 
 - Branch: `main`
-- All Phase 1 and Phase 1.5 work committed and pushed
-- Tag: `v0.3.0-trove-logging`
+- All Phase 1, 1.5, and Phase 2 work committed and pushed
+- Latest commit: `ff73b03` - MCP auto-registration
+
+### Key Discovery: FQN Access in SCI
+
+**Use FQN instead of require with alias** for MCP server namespaces:
+```clojure
+;; This works in SCI without require
+(nrepl-mcp-server.state.tool-registry/register-tool!
+ "tool-name" handler metadata)
+
+;; registry-size also works
+(nrepl-mcp-server.state.tool-registry/registry-size)
+;; => 16  ; 12 base + 4 agent tools
+```
 
 ---
 
 ## Next Steps (Priority Order)
 
-### 1. Implement Inter-Agent MCP Tools (Phase 1)
+### 1. Phase 3: Cost Optimization
 
-From `docs/inter-agent-mcp-tools-design.md`:
+From `docs/multi-backend-llm-tasks.md`:
 
-- [ ] Logging system (`logs/agent-communication.log`)
-- [ ] `agent-spawn-worker` tool
-- [ ] `agent-send-task` tool
-- [ ] `agent-kill-worker` tool
-- [ ] `agent-list-workers` tool
-- [ ] Basic safeguards (max-workers limit)
-
-**Key insight:** Can load dynamically into running server:
-```clojure
-(mcp.nrepl-server/local-load-file "/path/to/agent_tools.clj")
-;; Tools self-register, immediately available
-```
+- [ ] Measure token/cost reduction
+- [ ] Create data-fetcher prompt templates
+- [ ] Document model-appropriate prompting
+- [ ] Add token counting to service
 
 ### 2. Script Mode Implementation
 
@@ -139,13 +154,11 @@ From `docs/inter-agent-mcp-tools-design.md`:
 - [ ] `agent-workflow-execute` tool
 - [ ] Step-by-step execution with logging
 
-### 3. Phase 2: Cost Optimization
+### 3. Phase 4: Hybrid Cloud/Local
 
-From `docs/multi-backend-llm-tasks.md`:
-
-- [ ] Measure token/cost reduction
-- [ ] Create data-fetcher prompt templates
-- [ ] Add token counting to service
+- [ ] Install Ollama locally
+- [ ] Test Ollama API
+- [ ] Add :ollama backend to spawn!
 
 ---
 
@@ -213,14 +226,30 @@ bb clay:start
 # 2. Verify servers running
 bb clay:status
 
-# 3. Load claude service (via MCP)
-# Use local-load-file MCP tool
+# 3. Test inter-agent MCP tools
+# Restart Claude Code to pick up tools from mcp-startup.clj
+# Then use the tools directly:
+#   mcp__nrepl_mcp_server__agent-list-workers
+#   mcp__nrepl_mcp_server__agent-spawn-worker
+#   mcp__nrepl_mcp_server__agent-send-task
+#   mcp__nrepl_mcp_server__agent-kill-worker
 
-# 4. Test it works
+# 4. Or use BB tasks for CLI control
 bb claude:spawn test
 bb claude:ask test "Hello"
 bb claude:kill test
 ```
+
+### MCP Startup Pattern
+
+The `mcp-startup.clj` file is loaded automatically by the MCP server when it starts.
+This registers the inter-agent tools so they're available to Claude Code immediately.
+
+To add new MCP tools:
+1. Create handler function and metadata in a `.clj` file
+2. Use `nrepl-mcp-server.state.tool-registry/register-tool!` FQN
+3. Add `(load-file "src/your-tools.clj")` to `mcp-startup.clj`
+4. Restart Claude Code session to pick up new tools
 
 ---
 
@@ -262,14 +291,14 @@ bb claude:ask worker "fetch data..."  # Worker knows it's a crypto analyst!
 
 ## Important Commits
 
-- `36b4158` - **Trove/telemere-lite structured logging** (Phase 1.5 complete)
+- `ff73b03` - **MCP auto-registration with FQN pattern** (Phase 2 complete)
+- `e92fa02` - Phase 2.6 integration testing complete
+- `288d0ab` - Phase 2.5 agent-kill-worker tool
+- `36b4158` - Trove/telemere-lite structured logging (Phase 1.5 complete)
 - `25afd02` - Inter-agent MCP tools design
-- `0b34a30` - Relay explanation in demo doc
-- `1bf36f8` - Recorded demo run
 - `9b324df` - Model selection for fork
-- `d52a49b` - Phase 1 documentation complete
 - `9f162b1` - Multi-backend LLM service with model selection
 
 ---
 
-*Last updated: 2025-11-19 ~10:00*
+*Last updated: 2025-11-19 ~11:00*
